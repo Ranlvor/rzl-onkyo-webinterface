@@ -1,0 +1,6 @@
+[submodule "phpMQTT"]
+	path = phpMQTT
+	url = https://github.com/bluerhinos/phpMQTT.git
+[submodule "PHP-MPD-Client"]
+	path = PHP-MPD-Client
+	url = https://github.com/MonsterGfx/PHP-MPD-Client.git

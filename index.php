@@ -1,6 +1,18 @@
 <?php
 require("phpMQTT/phpMQTT.php");
-if(true || $_GET['musicNow'] == "true") {
+
+if($_GET['volume'] == "up" || $_GET['volume'] == "down") {
+    $mqtt = new phpMQTT("infra.rzl", 1883, "onkyo-start-skript");
+    if(!$mqtt->connect()){
+        exit(1);
+    }
+    if($_GET['volume'] == "up") {
+        $mqtt->publish("/service/onkyo/command","MVLUP",0);
+    } else if ($_GET['volume'] == "down") {
+        $mqtt->publish("/service/onkyo/command","MVLDOWN",0);
+    }
+
+} else if($_GET['musicNow'] == "true") {
     require("PHP-MPD-Client/mpd/MPD.php");
     
     \PHPMPDClient\MPD::connect("", "127.0.0.1");
@@ -29,11 +41,13 @@ if(true || $_GET['musicNow'] == "true") {
     echo "command onkyo to turn on and start the mpd stream…<br>";
     $mqtt->publish("/service/onkyo/command","SLI2B",0);
     $mqtt->publish("/service/onkyo/command","NPR01",0);
-    echo '<a href="/mpd/">MPD Webinterface</a>'
+    echo '<a href="/mpd/">MPD Webinterface</a>';
     $mqtt->close();
-} else {
+    exit();
+}
 
 function mainText() {
+    echo 'Volume <a href="?volume=up">up</a> <a href="?volume=down">down</a><br>';
     echo '<a href="/mpd/">MPD Webinterface</a><br><br>';
     echo '<a href="?musicNow=true">I want music now</a>';
     exit();
@@ -91,4 +105,4 @@ function procNLT($topic,$msg){
         mainText();
     }
 }
-}
+

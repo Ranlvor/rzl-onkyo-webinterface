@@ -86,6 +86,7 @@ function mainText() {
   var handle = $( "#custom-handle" );	    
   var mqtt;
   var isSliding = false;
+  var volume = "unknown";
   $( function() {
     handle.text("<?php global $volume; echo $volume; ?>");
     $( "#volume-slider" ).slider({
@@ -138,6 +139,7 @@ function mainText() {
     function onConnect() {
 	$( "#volume-cur" ).val("requesting volume…");
         mqtt.subscribe("/service/onkyo/status/volume", {qos: 0});
+        mqtt.subscribe("/service/onkyo/status/audio-muting", {qos: 0});
     }
 
     function onConnectionLost(response) {
@@ -146,12 +148,21 @@ function mainText() {
     };
 
     function onMessageArrived(message) {
-	var newVolume = JSON.parse(message.payloadString).val
-	$( "#volume-cur" ).val(newVolume);
-	if(!isSliding) {
-          $( "#volume-slider" ).slider("value", newVolume);
-          handle.text(newVolume);
-	}
+        if(message.destinationName == "/service/onkyo/status/volume") {
+          volume = JSON.parse(message.payloadString).val;
+          $( "#volume-cur" ).val(volume);
+          if(!isSliding) {
+            $( "#volume-slider" ).slider("value", volume);
+            handle.text(volume);
+          }
+        } else if (message.destinationName == "/service/onkyo/status/audio-muting") {
+          var newState = JSON.parse(message.payloadString).val;
+          if(newState == "on") {
+            $( "#volume-cur" ).val("mute");
+          } else if (newState == "off") {
+            $( "#volume-cur" ).val(volume);
+          }
+        }
     }
     MQTTconnect();
   } );

@@ -62,35 +62,98 @@ function mainText() {
 ?>
 <script src="js/external/jquery/jquery.js"></script>
 <script src="js/jquery-ui.min.js"></script>
+<script src="js/mqttws31.min.js"></script>
 <link rel="stylesheet" href="js/jquery-ui.min.css">
 <link rel="stylesheet" href="js/jquery-ui.theme.min.css">
+
 <p>
-  <label for="amount">Onkyo Volume:</label>
-  <input type="text" id="amount" readonly style="border:0; color:green; font-weight:bold;">
+  <label for="volume-cur">Onkyo Volume:</label>
+  <input type="text" id="volume-cur" readonly style="border:0; color:green; font-weight:bold;" value="loading JS…">
 </p>
-<div id="slider-range-max"></div>
- 
+<div id="volume-slider"><div id="custom-handle" class="ui-slider-handle"></div></div>
+<style>
+#custom-handle {
+  width: 3em;
+  height: 1.6em;
+  top: 50%;
+  margin-top: -.8em;
+  text-align: center;
+  line-height: 1.6em;
+}
+</style> 
 <script>
-  var lastTimeout = null;
+  var setVolumeTimeout = null;
+  var handle = $( "#custom-handle" );	    
+  var mqtt;
+  var isSliding = false;
   $( function() {
-    $( "#slider-range-max" ).slider({
+    handle.text("<?php global $volume; echo $volume; ?>");
+    $( "#volume-slider" ).slider({
       range: "max",
       min: 0,
       max: 50,
       value: <?php global $volume; echo $volume; ?>,
       slide: function( event, ui ) {
-        $( "#amount" ).val( ui.value );
-        $( "#amount" ).css("color", "red");
-        if(lastTimeout != null) {
-          clearTimeout(lastTimeout);
+        handle.text(ui.value);
+        if(setVolumeTimeout != null) {
+          clearTimeout(setVolumeTimeout);
         }
-        lastTimeout = setTimeout(function(){
-          lastTimeout = null;
-          jQuery.post("index.php", { volume: ui.value }, function(){ $( "#amount" ).css("color", "green"); });
-        }, 100);
-      }
+        setVolumeTimeout = setTimeout(function(){
+	  setVolumeTimeout = null;
+          message = new Paho.MQTT.Message(ui.value+"");
+	  message.destinationName = "/service/onkyo/set/volume";
+	  mqtt.send(message);
+	}, 50);
+      },
+      start: function( e,u ) { isSliding = true; },
+      stop: function( e,u ) { isSliding = false; }
     });
-    $( "#amount" ).val( $( "#slider-range-max" ).slider( "value" ) );
+    var reconnectTimeout = 2000;
+
+    function MQTTconnect() {
+        $( "#volume-cur" ).val("connecting…");
+        mqtt = new Paho.MQTT.Client(
+                        "mpd.rzl",
+                        1884,
+                        "" //"web_" + parseInt(Math.random() * 100, 10)
+                        );
+        var options = {
+            timeout: 60,
+            useSSL: false,
+            cleanSession: true,
+            onSuccess: onConnect,
+            onFailure: function (message) {
+                $( "#volume-cur" ).val("connecting failed");
+                setTimeout(MQTTconnect, reconnectTimeout);
+            }
+        };
+
+        mqtt.onConnectionLost = onConnectionLost;
+        mqtt.onMessageArrived = onMessageArrived;
+
+        //console.log("Host="+ host + ", port=" + port + " TLS = " + useTLS + " username=" + username + " password=" + password);
+        mqtt.connect(options);
+    }
+
+    function onConnect() {
+	$( "#volume-cur" ).val("requesting volume…");
+        mqtt.subscribe("/service/onkyo/status/volume", {qos: 0});
+    }
+
+    function onConnectionLost(response) {
+        setTimeout(MQTTconnect, reconnectTimeout);
+        $( "#volume-cur" ).val("disconnected");
+    };
+
+    function onMessageArrived(message) {
+	var newVolume = JSON.parse(message.payloadString).val
+	$( "#volume-cur" ).val(newVolume);
+	if(!isSliding) {
+          $( "#volume-slider" ).slider("value", newVolume);
+          handle.text(newVolume);
+	}
+    }
+    MQTTconnect();
   } );
 </script>
 <?php

@@ -62,6 +62,7 @@ function mainText() {
 ?>
 <script src="js/external/jquery/jquery.js"></script>
 <script src="js/jquery-ui.min.js"></script>
+<script src="js/jquery.ui.touch-punch.min.js"></script>
 <script src="js/mqttws31.min.js"></script>
 <link rel="stylesheet" href="js/jquery-ui.min.css">
 <link rel="stylesheet" href="js/jquery-ui.theme.min.css">

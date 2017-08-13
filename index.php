@@ -72,6 +72,18 @@ function mainText() {
   <input type="text" id="volume-cur" readonly style="border:0; color:green; font-weight:bold;" value="loading JS…">
 </p>
 <div id="volume-slider"><div id="custom-handle" class="ui-slider-handle"></div></div>
+
+<p>
+  <label for="onkyo-input">Onkyo Input:</label>
+  <select id="onkyo-input">
+    <option value="" disabled selected>Unknown</option>
+    <option value="SLI2B">Netzwerk</option>
+    <option value="SLI10">Rednerpult</option>
+    <option value="SLI11">Tisch</option>
+    <option value="SLI01">Chromecast</option>
+  </select>
+</p>
+<br><br><br>(Ab hier work in progress)<br><br><br>
 <style>
 #custom-handle {
   width: 3em;
@@ -110,6 +122,11 @@ function mainText() {
       start: function( e,u ) { isSliding = true; },
       stop: function( e,u ) { isSliding = false; }
     });
+    $("#onkyo-input").on('change', function(){
+	message = new Paho.MQTT.Message($("#onkyo-input").val());
+	message.destinationName = "/service/onkyo/command";
+	mqtt.send(message);
+    });
     var reconnectTimeout = 2000;
 
     function MQTTconnect() {
@@ -140,7 +157,8 @@ function mainText() {
     function onConnect() {
 	$( "#volume-cur" ).val("requesting volume…");
         mqtt.subscribe("/service/onkyo/status/volume", {qos: 0});
-        mqtt.subscribe("/service/onkyo/status/audio-muting", {qos: 0});
+	mqtt.subscribe("/service/onkyo/status/audio-muting", {qos: 0});
+	mqtt.subscribe("/service/onkyo/status/input-selector", {qos: 0});
     }
 
     function onConnectionLost(response) {
@@ -163,7 +181,10 @@ function mainText() {
           } else if (newState == "off") {
             $( "#volume-cur" ).val(volume);
           }
-        }
+	} else if (message.destinationName == "/service/onkyo/status/input-selector") {
+	  var newInput = JSON.parse(message.payloadString).onkyo_raw;
+	  $("#onkyo-input").val(newInput);
+	}
     }
     MQTTconnect();
   } );

@@ -77,16 +77,17 @@ function mainText() {
   <label for="onkyo-input">Onkyo Input:</label>
   <select id="onkyo-input">
     <option value="" disabled selected>Unknown</option>
+    <option value="PWR00" >Off</option>
     <option value="SLI2B">Netzwerk</option>
     <option value="SLI10">Rednerpult</option>
     <option value="SLI11">Tisch</option>
     <option value="SLI01">Chromecast</option>
   </select>
 </p>
-<br><br><br>(Ab hier work in progress)<br><br><br>
-<p>
+<div id="onkyo-network-source-div">
   <label for="onkyo-network-source">Onkyo Netzwerk-Quelle:</label>
   <div id="onkyo-network-source"></div>
+</div>
 <style>
 #custom-handle {
   width: 3em;
@@ -103,6 +104,13 @@ function mainText() {
   var mqtt;
   var isSliding = false;
   var volume = "unknown";
+  function onkyoInputChanged() {
+    if($("#onkyo-input").val() == "SLI2B") {
+      $("#onkyo-network-source-div").show()
+    } else {
+      $("#onkyo-network-source-div").hide()
+    }
+  }  
   $( function() {
     handle.text("<?php global $volume; echo $volume; ?>");
     $( "#volume-slider" ).slider({
@@ -129,11 +137,14 @@ function mainText() {
 	message = new Paho.MQTT.Message($("#onkyo-input").val());
 	message.destinationName = "/service/onkyo/command";
 	mqtt.send(message);
+	onkyoInputChanged();
     });
     $.get("/onkyo-stations.php", "", function(data){
 	var html = $.parseHTML(data);
 	var topContainer = html[8];
 	var jq = $(topContainer)
+	var ul = document.createElement('ul')
+	ul.id = "onkyo-station-selection"
 	for(var i = 0; i < 40; i++) {
 	    var iStr = i < 10 ? "0"+i : i;
 	    var name = jq.find("#name"+iStr).val();
@@ -142,7 +153,7 @@ function mainText() {
 		if(id.length < 2) {
 		   id = "0"+id;
 		}
-		var a = document.createElement('a')
+		var a = document.createElement('li')
 		a.append(document.createTextNode(name))
 		$(a).on("click", null, id, function (e){ 
 			console.log("Tuning to sender "+e.handleObj.data);
@@ -150,9 +161,10 @@ function mainText() {
 			message.destinationName = "/service/onkyo/command";
 			mqtt.send(message);
 		})
-		$("#onkyo-network-source").append(a)
+		ul.append(a)
 	    }
 	}
+	$("#onkyo-network-source").append(ul)
     })
     var reconnectTimeout = 2000;
 
@@ -186,6 +198,7 @@ function mainText() {
         mqtt.subscribe("/service/onkyo/status/volume", {qos: 0});
 	mqtt.subscribe("/service/onkyo/status/audio-muting", {qos: 0});
 	mqtt.subscribe("/service/onkyo/status/input-selector", {qos: 0});
+	mqtt.subscribe("/service/onkyo/status/system-power", {qos: 0});
     }
 
     function onConnectionLost(response) {
@@ -193,6 +206,7 @@ function mainText() {
         $( "#volume-cur" ).val("disconnected");
     };
 
+    var rememberedInput = "";
     function onMessageArrived(message) {
         if(message.destinationName == "/service/onkyo/status/volume") {
           volume = JSON.parse(message.payloadString).val;
@@ -209,11 +223,21 @@ function mainText() {
             $( "#volume-cur" ).val(volume);
           }
 	} else if (message.destinationName == "/service/onkyo/status/input-selector") {
-	  var newInput = JSON.parse(message.payloadString).onkyo_raw;
-	  $("#onkyo-input").val(newInput);
+	  rememberedInput = JSON.parse(message.payloadString).onkyo_raw;
+	  $("#onkyo-input").val(rememberedInput);
+	  onkyoInputChanged();
+	} else if (message.destinationName == "/service/onkyo/status/system-power") {
+	  var power = JSON.parse(message.payloadString).val == "on"
+	  if(power) {
+	    $("#onkyo-input").val(rememberedInput);
+	  } else {
+	    $("#onkyo-input").val("PWR00");
+	  }
+	  onkyoInputChanged();
 	}
     }
     MQTTconnect();
+    onkyoInputChanged();
   } );
 </script>
 <?php

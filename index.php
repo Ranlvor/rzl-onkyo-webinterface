@@ -84,6 +84,9 @@ function mainText() {
   </select>
 </p>
 <br><br><br>(Ab hier work in progress)<br><br><br>
+<p>
+  <label for="onkyo-network-source">Onkyo Netzwerk-Quelle:</label>
+  <div id="onkyo-network-source"></div>
 <style>
 #custom-handle {
   width: 3em;
@@ -106,7 +109,7 @@ function mainText() {
       range: "max",
       min: 0,
       max: 50,
-      value: <?php global $volume; echo $volume; ?>,
+      value: <?php global $volume; echo is_numeric($volume) ? $volume : 0; ?>,
       slide: function( event, ui ) {
         handle.text(ui.value);
         if(setVolumeTimeout != null) {
@@ -127,6 +130,30 @@ function mainText() {
 	message.destinationName = "/service/onkyo/command";
 	mqtt.send(message);
     });
+    $.get("/onkyo-stations.php", "", function(data){
+	var html = $.parseHTML(data);
+	var topContainer = html[8];
+	var jq = $(topContainer)
+	for(var i = 0; i < 40; i++) {
+	    var iStr = i < 10 ? "0"+i : i;
+	    var name = jq.find("#name"+iStr).val();
+	    if(name != "") {
+		var id = (i+1).toString(16);
+		if(id.length < 2) {
+		   id = "0"+id;
+		}
+		var a = document.createElement('a')
+		a.append(document.createTextNode(name))
+		$(a).on("click", null, id, function (e){ 
+			console.log("Tuning to sender "+e.handleObj.data);
+			message = new Paho.MQTT.Message("NPR"+e.handleObj.data);
+			message.destinationName = "/service/onkyo/command";
+			mqtt.send(message);
+		})
+		$("#onkyo-network-source").append(a)
+	    }
+	}
+    })
     var reconnectTimeout = 2000;
 
     function MQTTconnect() {
